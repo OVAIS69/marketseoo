@@ -1,0 +1,234 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  name            String
+  password        String           @default("password123")
+  role            String           @default("USER") // USER, ADMIN
+  xp              Int              @default(150)
+  level           String           @default("Learner") // Beginner, Learner, Digital Marketer, Growth Expert
+  avatar          String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  businessProfile BusinessProfile?
+  progress        UserProgress[]
+  quizAttempts    QuizAttempt[]
+  assessments     AssessmentResult[]
+  campaigns       Campaign[]
+  contentItems    ContentCalendar[]
+  userBadges      UserBadge[]
+  certificates    Certificate[]
+}
+
+model BusinessProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName    String
+  industry        String
+  website         String?
+  stage           String   @default("Growing") // Startup, Early Stage, Growing, Established
+  primaryGoal     String   @default("Attract More Customers")
+  targetAudience  String?
+  monthlyBudget   Float?   @default(500)
+  growthScore     Int      @default(72)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Course {
+  id           String         @id @default(cuid())
+  slug         String         @unique
+  title        String
+  description  String
+  category     String         // Fundamentals, Social, SEO, Content, Advertising, Analytics
+  difficulty   String         // Beginner, Intermediate, Advanced
+  duration     String         // e.g. "1.5 Hours", "2 Hours"
+  iconName     String         // Lucide icon identifier
+  accentColor  String         // Hex color or Tailwind accent class
+  order        Int            @default(0)
+  published    Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  lessons      Lesson[]
+  quizzes      Quiz[]
+  progress     UserProgress[]
+  certificates Certificate[]
+}
+
+model Lesson {
+  id           String         @id @default(cuid())
+  courseId     String
+  course       Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  slug         String
+  title        String
+  content      String         // Full rich markdown/HTML content
+  videoUrl     String?        // Video URL or placeholder ID
+  duration     String         @default("10 mins")
+  order        Int            @default(0)
+  exercisePrompt String?
+  keyTakeaways String?        // JSON or bullet strings
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  progress     UserProgress[]
+
+  @@unique([courseId, slug])
+}
+
+model Quiz {
+  id           String        @id @default(cuid())
+  courseId     String
+  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  passingScore Int           @default(70) // percentage
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  questions    Question[]
+  attempts     QuizAttempt[]
+}
+
+model Question {
+  id                 String   @id @default(cuid())
+  quizId             String
+  quiz               Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question           String
+  optionsJson        String   // JSON array of strings: ["Option A", "Option B", ...]
+  correctAnswerIndex Int
+  explanation        String
+  order              Int      @default(0)
+}
+
+model QuizAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId      String
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  score       Int
+  maxScore    Int
+  percentage  Float
+  passed      Boolean
+  completedAt DateTime @default(now())
+}
+
+model UserProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessonId    String
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+
+  @@unique([userId, lessonId])
+}
+
+model Assessment {
+  id          String   @id @default(cuid())
+  slug        String   @unique @default("small-biz-growth-audit")
+  title       String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AssessmentResult {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  overallScore        Int      @default(72)
+  socialScore         Int      @default(80)
+  seoScore            Int      @default(55)
+  contentScore        Int      @default(72)
+  advertisingScore    Int      @default(61)
+  analyticsScore      Int      @default(48)
+  recommendationsJson String   // JSON array of action recommendation objects
+  completedAt         DateTime @default(now())
+}
+
+model Campaign {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  platform       String   // Instagram, Google Ads, Facebook, LinkedIn, TikTok, Email
+  objective      String   // Brand Awareness, Lead Generation, Direct Sales, Website Traffic
+  targetAudience String
+  budget         Float
+  startDate      DateTime
+  endDate        DateTime
+  status         String   @default("Active") // Draft, Scheduled, Active, Paused, Completed
+  progress       Int      @default(0) // 0-100%
+  reach          Int      @default(0)
+  clicks         Int      @default(0)
+  conversions    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ContentCalendar {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  platform      String   // Instagram, LinkedIn, Facebook, Twitter/X, TikTok
+  contentType   String   // Carousel, Reel/Video, Story, Single Image, Article
+  scheduledDate DateTime
+  caption       String
+  hashtags      String?
+  status        String   @default("Planned") // Draft, Planned, Published
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  description String
+  icon        String      // Lucide icon name
+  category    String      // Starter, Mastery, Tool, Streak
+  xpReward    Int         @default(50)
+
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId  String
+  badge    Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+model Certificate {
+  id              String   @id @default(cuid())
+  certificateCode String   @unique // e.g. "ML-2026-8942-GROWTH"
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId        String?
+  course          Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  title           String   @default("Digital Marketing Mastery for Small Business")
+  issuedToName    String
+  issueDate       DateTime @default(now())
+  verificationUrl String
+  scoreAchieved   Int      @default(94)
+}
